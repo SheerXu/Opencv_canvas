@@ -7,6 +7,7 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QScrollArea
 from PyQt5.QtGui import QImage, QPixmap, QFont
 from PyQt5.QtCore import Qt
 import numpy as np
+import cv2
 
 
 class ResultDisplay(QWidget):
@@ -48,20 +49,30 @@ class ResultDisplay(QWidget):
         if image_array is None:
             return
         
-        # 反转图像：将黑色(0)转为白色(255)，白色(255)转为黑色(0)
-        image_array = np.ascontiguousarray(255 - image_array)
+        # 确保数据是连续的
+        if not image_array.flags['C_CONTIGUOUS']:
+            image_array = np.ascontiguousarray(image_array)
         
-        # 确保是灰度图像
+        height = image_array.shape[0]
+        width = image_array.shape[1]
+        
+        # 处理不同格式的图像
         if len(image_array.shape) == 2:
-            height, width = image_array.shape
+            # 灰度图像 - 需要反转以显示为白底黑字
+            # image_array = 255 - image_array
             bytes_per_line = width
             q_image = QImage(image_array.data, width, height, bytes_per_line, QImage.Format_Grayscale8)
-        else:
-            height, width, channel = image_array.shape
-            if channel == 3:
-                q_image = QImage(image_array.data, width, height, 3 * width, QImage.Format_RGB888)
+        elif len(image_array.shape) == 3:
+            if image_array.shape[2] == 3:
+                # BGR 彩色图像 - 转换为 RGB 以显示正确的颜色（绿色框）
+                rgb_image = cv2.cvtColor(image_array, cv2.COLOR_BGR2RGB)
+                rgb_image = np.ascontiguousarray(rgb_image)
+                q_image = QImage(rgb_image.data, width, height, 3 * width, QImage.Format_RGB888)
             else:
-                q_image = QImage(image_array.data, width, height, 4 * width, QImage.Format_RGBA8888)
+                # BGRA 或其他格式
+                q_image = QImage(image_array.data, width, height, image_array.shape[2] * width, QImage.Format_RGBA8888)
+        else:
+            return
         
         # 缩放到标签大小
         pixmap = QPixmap.fromImage(q_image)

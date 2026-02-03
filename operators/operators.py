@@ -231,6 +231,41 @@ class DistanceOperator:
         return result, stats
 
 
+class TemplateMatchingOperator:
+    """模板匹配操作类"""
+    
+    @staticmethod
+    def template_match(source_image: np.ndarray, template_image: np.ndarray = None) -> Tuple[np.ndarray, Dict]:
+        """模板匹配"""
+        if template_image is None or template_image.size == 0:
+            raise ValueError("模板图像为空，请先指定模板区域")
+        
+        if source_image.shape[0] < template_image.shape[0] or source_image.shape[1] < template_image.shape[1]:
+            raise ValueError("模板图像大于源图像，无法进行匹配")
+        
+        # 使用归一化相关系数匹配
+        result = cv2.matchTemplate(source_image, template_image, cv2.TM_CCOEFF_NORMED)
+        
+        # 找到最优匹配位置
+        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+        top_left = max_loc
+        bottom_right = (top_left[0] + template_image.shape[1], top_left[1] + template_image.shape[0])
+        
+        # 在源图像上绘制匹配框（转为 BGR 彩色图以保留绿色）
+        match_image = cv2.cvtColor(source_image, cv2.COLOR_GRAY2BGR)
+        cv2.rectangle(match_image, top_left, bottom_right, (0, 255, 0), 2)
+        
+        # 返回 BGR 彩色图，不转回灰度
+        stats = {
+            "操作": "模板匹配",
+            "置信度 (Score)": f"{max_val:.4f}",
+            "匹配位置": f"({top_left[0]}, {top_left[1]})",
+            "模板大小": f"{template_image.shape[1]}x{template_image.shape[0]}",
+            "源图像大小": f"{source_image.shape[1]}x{source_image.shape[0]}"
+        }
+        return match_image, stats
+
+
 # 算子注册表
 OPERATORS = {
     "形态学操作": {
@@ -255,5 +290,8 @@ OPERATORS = {
     },
     "距离变换": {
         "距离变换": DistanceOperator.distance_transform,
+    },
+    "模板匹配": {
+        "模板匹配": TemplateMatchingOperator.template_match,
     }
 }
