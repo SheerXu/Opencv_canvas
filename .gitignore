@@ -1,4 +1,5 @@
 .vscode/
 __pycache__/
+ui/__pycache__/
 test_images/
 *.pyc
