@@ -1,0 +1,26 @@
+"""
+配置文件示例
+可根据需要修改默认参数
+"""
+
+# 画布默认尺寸
+CANVAS_WIDTH = 400
+CANVAS_HEIGHT = 300
+
+# 笔刷默认大小
+DEFAULT_BRUSH_SIZE = 5
+DEFAULT_BRUSH_COLOR = (255, 255, 255)  # RGB
+
+# 形态学操作默认参数
+DEFAULT_KERNEL_SIZE = 5
+
+# Canny边缘检测默认参数
+DEFAULT_CANNY_THRESHOLD1 = 100
+DEFAULT_CANNY_THRESHOLD2 = 200
+
+# 窗口大小
+MAIN_WINDOW_WIDTH = 1200
+MAIN_WINDOW_HEIGHT = 800
+
+# 应用标题
+APP_TITLE = "OpenCV算子预览工具"
