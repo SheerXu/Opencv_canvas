@@ -48,11 +48,13 @@ class ResultDisplay(QWidget):
         if image_array is None:
             return
         
+        # 反转图像：将黑色(0)转为白色(255)，白色(255)转为黑色(0)
+        image_array = np.ascontiguousarray(255 - image_array)
+        
         # 确保是灰度图像
         if len(image_array.shape) == 2:
             height, width = image_array.shape
             bytes_per_line = width
-            image_array = np.ascontiguousarray(image_array)
             q_image = QImage(image_array.data, width, height, bytes_per_line, QImage.Format_Grayscale8)
         else:
             height, width, channel = image_array.shape

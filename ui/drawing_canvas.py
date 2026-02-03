@@ -8,6 +8,7 @@ from PyQt5.QtGui import QImage, QPixmap, QPainter, QPen, QColor, QBrush
 from PyQt5.QtCore import Qt, pyqtSignal, QPoint
 import numpy as np
 import cv2
+from config import *
 
 
 class DrawingCanvas(QWidget):
@@ -20,12 +21,12 @@ class DrawingCanvas(QWidget):
         self.width = width
         self.height = height
         self.drawing = False
-        self.brush_size = 5
-        self.brush_color = QColor(0, 0, 0)  # 黑色笔刷
+        self.brush_size = DEFAULT_BRUSH_SIZE
+        self.brush_color = QColor(*DEFAULT_BRUSH_COLOR)  # 笔刷颜色
         
         # 初始化画布
         self.image = QImage(width, height, QImage.Format_Grayscale8)
-        self.image.fill(QColor(255, 255, 255))  # 白色背景
+        self.image.fill(QColor(*CANVAS_BG_COLOR))  # 背景颜色
         
         self.last_point = QPoint()
         
@@ -81,7 +82,9 @@ class DrawingCanvas(QWidget):
         height = self.image.height()
         ptr = self.image.bits()
         ptr.setsize(self.image.byteCount())
-        arr = np.array(ptr).reshape(height, width)
+        arr = np.array(ptr).reshape(height, self.image.bytesPerLine())
+        # 移除行填充，只保留实际的宽度数据
+        arr = arr[:, :width]
         return arr
     
     def set_image_array(self, arr: np.ndarray):

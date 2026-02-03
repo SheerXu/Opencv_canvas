@@ -14,6 +14,35 @@ import cv2
 from .drawing_canvas import DrawingCanvas
 from .result_display import ResultDisplay
 from operators import OPERATORS
+from config import *
+
+
+# 算子参数映射表
+OPERATOR_PARAMS = {
+    "形态学操作": {
+        "腐蚀": ["kernel_size"],
+        "膨胀": ["kernel_size"],
+        "开运算": ["kernel_size"],
+        "闭运算": ["kernel_size"],
+        "形态学梯度": ["kernel_size"],
+    },
+    "边缘检测": {
+        "Canny": ["threshold1", "threshold2"],
+        "Sobel X": ["kernel_size"],
+        "Sobel Y": ["kernel_size"],
+        "Laplacian": ["kernel_size"],
+    },
+    "轮廓操作": {
+        "轮廓检测": [],
+        "凸包": [],
+    },
+    "骨架提取": {
+        "骨架提取": [],
+    },
+    "距离变换": {
+        "距离变换": [],
+    }
+}
 
 
 class MainWindow(QMainWindow):
@@ -21,8 +50,8 @@ class MainWindow(QMainWindow):
     
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("OpenCV算子预览工具")
-        self.setGeometry(100, 100, 1400, 750)
+        self.setWindowTitle(APP_TITLE)
+        self.setGeometry(100, 100, MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT)
         
         # 创建中央控件
         central_widget = QWidget()
@@ -43,7 +72,7 @@ class MainWindow(QMainWindow):
         
         right_label = QLabel("处理结果")
         right_label.setFont(QFont("Consolas", 11, QFont.Bold))
-        right_label.setAlignment(Qt.AlignRight)
+        right_label.setAlignment(Qt.AlignCenter)
         
         top_layout.addWidget(left_label, 1)
         top_layout.addWidget(middle_label, 0)
@@ -56,7 +85,7 @@ class MainWindow(QMainWindow):
         
         # ===== 左侧：绘画区域 =====
         left_content_layout = QVBoxLayout()
-        self.canvas = DrawingCanvas(450, 450)
+        self.canvas = DrawingCanvas(CANVAS_WIDTH, CANVAS_HEIGHT)
         left_content_layout.addWidget(self.canvas)
         left_content_layout.addStretch()
         
@@ -71,7 +100,7 @@ class MainWindow(QMainWindow):
         self.brush_size_spinbox = QSpinBox()
         self.brush_size_spinbox.setMinimum(1)
         self.brush_size_spinbox.setMaximum(50)
-        self.brush_size_spinbox.setValue(5)
+        self.brush_size_spinbox.setValue(DEFAULT_BRUSH_SIZE)
         self.brush_size_spinbox.valueChanged.connect(
             lambda v: self.canvas.set_brush_size(v)
         )
@@ -99,38 +128,60 @@ class MainWindow(QMainWindow):
         middle_content_layout.addWidget(operator_label)
         
         self.operator_combo = QComboBox()
-        self.update_operator_combo()
+        self.update_operator_combo()  # 先填充操作符列表
+        self.operator_combo.currentTextChanged.connect(self.on_operator_changed)
         middle_content_layout.addWidget(self.operator_combo)
         
-        # 参数设置区域
-        params_group = QGroupBox("参数设置")
-        params_layout = QFormLayout(params_group)
+        # 参数设置区域 - 使用QVBoxLayout而不是QFormLayout
+        self.params_group = QGroupBox("参数设置")
+        self.params_layout = QVBoxLayout(self.params_group)
         
-        # 核大小参数
-        kernel_label = QLabel("核大小")
+        # 核大小参数 - 使用子容器
+        kernel_container = QWidget()
+        kernel_h_layout = QHBoxLayout(kernel_container)
+        self.kernel_label = QLabel("核大小")
         self.kernel_spinbox = QSpinBox()
         self.kernel_spinbox.setMinimum(1)
         self.kernel_spinbox.setMaximum(21)
-        self.kernel_spinbox.setValue(5)
-        self.kernel_spinbox.setSingleStep(2)  # 步长为2，保证为奇数
-        params_layout.addRow(kernel_label, self.kernel_spinbox)
+        self.kernel_spinbox.setValue(DEFAULT_KERNEL_SIZE)
+        self.kernel_spinbox.setSingleStep(2)
+        kernel_h_layout.addWidget(self.kernel_label)
+        kernel_h_layout.addWidget(self.kernel_spinbox)
+        self.kernel_container = kernel_container
+        self.params_layout.addWidget(kernel_container)
+        kernel_container.hide()  # 初始隐藏
         
-        # Canny阈值
-        threshold1_label = QLabel("低阈值")
+        # Canny低阈值 - 使用子容器
+        threshold1_container = QWidget()
+        threshold1_h_layout = QHBoxLayout(threshold1_container)
+        self.threshold1_label = QLabel("低阈值")
         self.threshold1_spinbox = QSpinBox()
         self.threshold1_spinbox.setMinimum(0)
-        self.threshold1_spinbox.setMaximum(500)
-        self.threshold1_spinbox.setValue(100)
-        params_layout.addRow(threshold1_label, self.threshold1_spinbox)
+        self.threshold1_spinbox.setMaximum(255)
+        self.threshold1_spinbox.setValue(DEFAULT_CANNY_THRESHOLD1)
+        threshold1_h_layout.addWidget(self.threshold1_label)
+        threshold1_h_layout.addWidget(self.threshold1_spinbox)
+        self.threshold1_container = threshold1_container
+        self.params_layout.addWidget(threshold1_container)
+        threshold1_container.hide()  # 初始隐藏
         
-        threshold2_label = QLabel("高阈值")
+        # Canny高阈值 - 使用子容器
+        threshold2_container = QWidget()
+        threshold2_h_layout = QHBoxLayout(threshold2_container)
+        self.threshold2_label = QLabel("高阈值")
         self.threshold2_spinbox = QSpinBox()
         self.threshold2_spinbox.setMinimum(0)
-        self.threshold2_spinbox.setMaximum(500)
-        self.threshold2_spinbox.setValue(200)
-        params_layout.addRow(threshold2_label, self.threshold2_spinbox)
+        self.threshold2_spinbox.setMaximum(255)
+        self.threshold2_spinbox.setValue(DEFAULT_CANNY_THRESHOLD2)
+        threshold2_h_layout.addWidget(self.threshold2_label)
+        threshold2_h_layout.addWidget(self.threshold2_spinbox)
+        self.threshold2_container = threshold2_container
+        self.params_layout.addWidget(threshold2_container)
+        threshold2_container.hide()  # 初始隐藏
         
-        middle_content_layout.addWidget(params_group)
+        self.params_layout.addStretch()
+        
+        middle_content_layout.addWidget(self.params_group)
         
         # 运行按钮
         run_btn = QPushButton("运行算子")
@@ -143,7 +194,7 @@ class MainWindow(QMainWindow):
         
         # ===== 右侧：结果显示区域 =====
         right_content_layout = QVBoxLayout()
-        self.result_display = ResultDisplay(450, 450)
+        self.result_display = ResultDisplay(CANVAS_WIDTH, CANVAS_HEIGHT)
         right_content_layout.addWidget(self.result_display)
         right_content_layout.addStretch()
         
@@ -154,18 +205,66 @@ class MainWindow(QMainWindow):
         
         main_layout.addLayout(content_layout)
         central_widget.setLayout(main_layout)
+        
+        # 初始化参数显示
+        self.update_params_display()
     
     def on_category_changed(self, category):
         """当分类改变时更新算子列表"""
         self.update_operator_combo()
+        self.update_params_display()
+    
+    def on_operator_changed(self, operator_name):
+        """当算子改变时更新参数显示"""
+        self.update_params_display()
     
     def update_operator_combo(self):
         """更新算子下拉框"""
         current_category = self.category_combo.currentText()
         if current_category in OPERATORS:
             operators = list(OPERATORS[current_category].keys())
+            self.operator_combo.blockSignals(True)
             self.operator_combo.clear()
             self.operator_combo.addItems(operators)
+            self.operator_combo.blockSignals(False)
+    
+    def update_params_display(self):
+        """根据选定的算子更新参数显示"""
+        category = self.category_combo.currentText()
+        operator_name = self.operator_combo.currentText()
+        
+        # 获取该算子需要的参数
+        required_params = set()
+        if category in OPERATOR_PARAMS:
+            if operator_name in OPERATOR_PARAMS[category]:
+                required_params = set(OPERATOR_PARAMS[category][operator_name])
+        
+        # 调试输出
+        # print(f"DEBUG: update_params_display() - category='{category}', operator='{operator_name}', params={required_params}")
+        
+        # 隐藏/显示核大小容器
+        if "kernel_size" in required_params:
+            self.kernel_container.show()
+        else:
+            self.kernel_container.hide()
+        
+        # 隐藏/显示低阈值容器
+        if "threshold1" in required_params:
+            self.threshold1_container.show()
+        else:
+            self.threshold1_container.hide()
+        
+        # 隐藏/显示高阈值容器
+        if "threshold2" in required_params:
+            self.threshold2_container.show()
+        else:
+            self.threshold2_container.hide()
+        
+        # 如果没有参数，显示提示
+        if not required_params:
+            self.params_group.setTitle("参数设置（无）")
+        else:
+            self.params_group.setTitle("参数设置")
     
     def run_operator(self):
         """运行选定的算子"""
@@ -186,6 +285,12 @@ class MainWindow(QMainWindow):
             operator_name = self.operator_combo.currentText()
             operator_func = OPERATORS[category][operator_name]
             
+            # 获取该算子需要的参数
+            required_params = set()
+            if category in OPERATOR_PARAMS:
+                if operator_name in OPERATOR_PARAMS[category]:
+                    required_params = set(OPERATOR_PARAMS[category][operator_name])
+            
             # 准备参数
             kernel_size = self.kernel_spinbox.value()
             # 确保核大小为奇数
@@ -195,12 +300,15 @@ class MainWindow(QMainWindow):
             threshold1 = self.threshold1_spinbox.value()
             threshold2 = self.threshold2_spinbox.value()
             
-            # 调用算子函数
-            if "Canny" in operator_name or "canny" in operator_name:
+            # 根据需要的参数调用算子函数
+            if "threshold1" in required_params and "threshold2" in required_params:
+                # Canny算子
                 result_image, stats = operator_func(input_image, threshold1, threshold2)
-            elif "Sobel" in operator_name or "Laplacian" in operator_name:
+            elif "kernel_size" in required_params:
+                # 其他需要核大小的算子
                 result_image, stats = operator_func(input_image, kernel_size)
             else:
+                # 不需要参数的算子
                 result_image, stats = operator_func(input_image, kernel_size)
             
             # 显示结果
