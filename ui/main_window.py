@@ -5,7 +5,7 @@
 
 from PyQt5.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
                              QStackedLayout, QPushButton, QLabel, QComboBox, QSpinBox,
-                             QGroupBox, QFormLayout, QMessageBox, QFileDialog)
+                             QGroupBox, QFormLayout, QMessageBox, QFileDialog, QCheckBox)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 import numpy as np
@@ -157,7 +157,7 @@ OPERATOR_PARAMS = {
         "距离变换": [],
     },
     "模板匹配": {
-        "模板匹配": [],
+        "模板匹配": ["show_heatmap"],
     }
 }
 
@@ -376,6 +376,17 @@ class MainWindow(QMainWindow):
         self.params_layout.addWidget(threshold2_container)
         threshold2_container.hide()  # 初始隐藏
         
+        # 显示热力图 Checkbox - 使用子容器
+        heatmap_container = QWidget()
+        heatmap_h_layout = QHBoxLayout(heatmap_container)
+        heatmap_h_layout.setSpacing(10)
+        self.heatmap_checkbox = QCheckBox("🔥 显示匹配热力图")
+        self.heatmap_checkbox.setStyleSheet("color: #2c3e50; font-weight: bold;")
+        heatmap_h_layout.addWidget(self.heatmap_checkbox)
+        self.heatmap_container = heatmap_container
+        self.params_layout.addWidget(heatmap_container)
+        heatmap_container.hide() # 初始隐藏
+        
         self.params_layout.addStretch()
         
         middle_content_layout.addWidget(self.params_group)
@@ -494,6 +505,12 @@ class MainWindow(QMainWindow):
             self.threshold2_container.show()
         else:
             self.threshold2_container.hide()
+            
+        # 隐藏/显示热力图选项
+        if "show_heatmap" in required_params:
+            self.heatmap_container.show()
+        else:
+            self.heatmap_container.hide()
         
         # 如果没有参数，显示提示
         if not required_params:
@@ -535,8 +552,9 @@ class MainWindow(QMainWindow):
                     QMessageBox.warning(self, "警告", "请先导入源图像")
                     return
                 
+                show_heatmap = self.heatmap_checkbox.isChecked()
                 operator_func = OPERATORS[category][operator_name]
-                result_image, stats = operator_func(self.source_image, self.template_image)
+                result_image, stats = operator_func(self.source_image, self.template_image, show_heatmap)
                 
                 self.result_display.set_image(result_image)
                 self.update_stats_display(stats)

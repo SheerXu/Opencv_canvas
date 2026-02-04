@@ -235,7 +235,7 @@ class TemplateMatchingOperator:
     """模板匹配操作类"""
     
     @staticmethod
-    def template_match(source_image: np.ndarray, template_image: np.ndarray = None) -> Tuple[np.ndarray, Dict]:
+    def template_match(source_image: np.ndarray, template_image: np.ndarray = None, show_heatmap: bool = False) -> Tuple[np.ndarray, Dict]:
         """模板匹配"""
         if template_image is None or template_image.size == 0:
             raise ValueError("模板图像为空，请先指定模板区域")
@@ -244,27 +244,38 @@ class TemplateMatchingOperator:
             raise ValueError("模板图像大于源图像，无法进行匹配")
         
         # 使用归一化相关系数匹配
-        result = cv2.matchTemplate(source_image, template_image, cv2.TM_CCOEFF_NORMED)
+        match_result = cv2.matchTemplate(source_image, template_image, cv2.TM_CCOEFF_NORMED)
         
         # 找到最优匹配位置
-        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(match_result)
         top_left = max_loc
         score = max_val  # 使用 max_val 作为置信度分数
         bottom_right = (top_left[0] + template_image.shape[1], top_left[1] + template_image.shape[0])
         
-        # 在源图像上绘制匹配框（转为 BGR 彩色图以保留绿色）
-        match_image = cv2.cvtColor(source_image, cv2.COLOR_GRAY2BGR)
-        cv2.rectangle(match_image, top_left, bottom_right, (0, 255, 0), 2)
+        if show_heatmap:
+            # 归一化到 0-255 并转为 uint8
+            heatmap = cv2.normalize(match_result, None, 0, 255, cv2.NORM_MINMAX)
+            heatmap = np.uint8(heatmap)
+            # 应用伪彩色 colormap
+            result_image = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+            # 调整热力图大小以便于观看（如果太小）
+            if result_image.shape[0] < source_image.shape[0] or result_image.shape[1] < source_image.shape[1]:
+                 result_image = cv2.resize(result_image, (source_image.shape[1], source_image.shape[0]))
+        else:
+            # 在源图像上绘制匹配框（转为 BGR 彩色图以保留绿色）
+            result_image = cv2.cvtColor(source_image, cv2.COLOR_GRAY2BGR)
+            cv2.rectangle(result_image, top_left, bottom_right, (0, 255, 0), 2)
         
-        # 返回 BGR 彩色图，不转回灰度
+        # 返回 BGR 彩色图
         stats = {
             "操作": "模板匹配",
+            "模式": "热力图" if show_heatmap else "框选",
             "置信度 (Score)": f"{max_val:.4f}",
             "匹配位置": f"({top_left[0]}, {top_left[1]})",
             "模板大小": f"{template_image.shape[1]}x{template_image.shape[0]}",
             "源图像大小": f"{source_image.shape[1]}x{source_image.shape[0]}"
         }
-        return match_image, stats
+        return result_image, stats
 
 
 # 算子注册表
