@@ -5,7 +5,8 @@
 
 from PyQt5.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
                              QStackedLayout, QPushButton, QLabel, QComboBox, QSpinBox,
-                             QGroupBox, QFormLayout, QMessageBox, QFileDialog, QCheckBox)
+                             QGroupBox, QFormLayout, QMessageBox, QFileDialog, QCheckBox,
+                             QDoubleSpinBox)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 import numpy as np
@@ -158,6 +159,10 @@ OPERATOR_PARAMS = {
     },
     "模板匹配": {
         "模板匹配": ["show_heatmap"],
+    },
+    "聚类算法": {
+        "KMeans": ["k_value"],
+        "DBSCAN": ["eps_value", "min_samples"],
     }
 }
 
@@ -243,6 +248,13 @@ class MainWindow(QMainWindow):
         self.canvas_container = QWidget()
         canvas_layout = QVBoxLayout(self.canvas_container)
         canvas_layout.addWidget(self.canvas)
+        
+        # 聚类数据生成按钮
+        self.generate_data_btn = QPushButton("🎲 生成预设点集")
+        self.generate_data_btn.clicked.connect(self.generate_cluster_data)
+        self.generate_data_btn.hide()
+        canvas_layout.addWidget(self.generate_data_btn)
+        
         canvas_layout.addStretch()
         
         # ROI 容器
@@ -387,6 +399,55 @@ class MainWindow(QMainWindow):
         self.params_layout.addWidget(heatmap_container)
         heatmap_container.hide() # 初始隐藏
         
+        # KMeans K值 - 使用子容器
+        k_container = QWidget()
+        k_h_layout = QHBoxLayout(k_container)
+        k_h_layout.setSpacing(10)
+        self.k_label = QLabel("🧩 簇数量(K):")
+        self.k_label.setStyleSheet("color: #34495e; font-weight: bold;")
+        self.k_spinbox = QSpinBox()
+        self.k_spinbox.setMinimum(2)
+        self.k_spinbox.setMaximum(20)
+        self.k_spinbox.setValue(3)
+        k_h_layout.addWidget(self.k_label)
+        k_h_layout.addWidget(self.k_spinbox)
+        self.k_container = k_container
+        self.params_layout.addWidget(k_container)
+        k_container.hide()
+        
+        # DBSCAN Eps - 使用子容器
+        eps_container = QWidget()
+        eps_h_layout = QHBoxLayout(eps_container)
+        eps_h_layout.setSpacing(10)
+        self.eps_label = QLabel("📏 邻域半径(Eps):")
+        self.eps_label.setStyleSheet("color: #34495e; font-weight: bold;")
+        self.eps_spinbox = QDoubleSpinBox()
+        self.eps_spinbox.setMinimum(0.1)
+        self.eps_spinbox.setMaximum(500.0)
+        self.eps_spinbox.setValue(30.0)
+        self.eps_spinbox.setSingleStep(1.0)
+        eps_h_layout.addWidget(self.eps_label)
+        eps_h_layout.addWidget(self.eps_spinbox)
+        self.eps_container = eps_container
+        self.params_layout.addWidget(eps_container)
+        eps_container.hide()
+        
+        # DBSCAN MinSamples - 使用子容器
+        min_samples_container = QWidget()
+        min_samples_h_layout = QHBoxLayout(min_samples_container)
+        min_samples_h_layout.setSpacing(10)
+        self.min_samples_label = QLabel("👥 最小样本数:")
+        self.min_samples_label.setStyleSheet("color: #34495e; font-weight: bold;")
+        self.min_samples_spinbox = QSpinBox()
+        self.min_samples_spinbox.setMinimum(1)
+        self.min_samples_spinbox.setMaximum(100)
+        self.min_samples_spinbox.setValue(5)
+        min_samples_h_layout.addWidget(self.min_samples_label)
+        min_samples_h_layout.addWidget(self.min_samples_spinbox)
+        self.min_samples_container = min_samples_container
+        self.params_layout.addWidget(min_samples_container)
+        min_samples_container.hide()
+        
         self.params_layout.addStretch()
         
         middle_content_layout.addWidget(self.params_group)
@@ -441,21 +502,42 @@ class MainWindow(QMainWindow):
     def on_category_changed(self, category):
         """当分类改变时更新算子列表"""
         self.is_template_matching = (category == "模板匹配")
+        self.is_clustering = (category == "聚类算法")
         
         # 切换左侧面板
         if self.is_template_matching:
             self.left_label.setText("模板选择（导入图片并指定模板区域）")
             self.left_stack_layout.setCurrentWidget(self.roi_container)
             self.brush_group.hide()
-            # self.import_target_btn.show() # 已移入 roi_container 随堆栈显示
+            self.generate_data_btn.hide()
+            # 关闭标尺
+            self.result_display.set_ruler_visible(False)
             # 清空右侧显示和统计信息
             self.result_display.clear()
             self.update_stats_display({})
+        elif self.is_clustering:
+             self.left_label.setText("数据绘制区（点击绘制点集或使用预设）")
+             self.left_stack_layout.setCurrentWidget(self.canvas_container)
+             # 启用点绘制模式和聚类模式（白底黑字）
+             self.canvas.set_cluster_mode(True)
+             self.canvas.set_point_mode(True)
+             self.brush_group.setTitle("🎯 点绘制设置")
+             self.brush_group.show()
+             self.generate_data_btn.show()
+             # 启用标尺
+             self.result_display.set_ruler_visible(True)
+             self.result_display.clear()
         else:
             self.left_label.setText("绘画区（黑色笔刷绘画在白色背景上）")
             self.left_stack_layout.setCurrentWidget(self.canvas_container)
+            self.brush_group.setTitle("🖌️ 笔刷设置")
             self.brush_group.show()
-            # self.import_target_btn.hide() # 已移入 roi_container 随堆栈隐藏
+            self.generate_data_btn.hide()
+            # 关闭点绘制模式和聚类模式
+            self.canvas.set_point_mode(False)
+            self.canvas.set_cluster_mode(False)
+            # 关闭标尺
+            self.result_display.set_ruler_visible(False)
         
         self.update_operator_combo()
         self.update_params_display()
@@ -511,6 +593,23 @@ class MainWindow(QMainWindow):
             self.heatmap_container.show()
         else:
             self.heatmap_container.hide()
+
+        # KMeans参数
+        if "k_value" in required_params:
+            self.k_container.show()
+        else:
+            self.k_container.hide()
+            
+        # DBSCAN参数
+        if "eps_value" in required_params:
+            self.eps_container.show()
+        else:
+            self.eps_container.hide()
+            
+        if "min_samples" in required_params:
+            self.min_samples_container.show()
+        else:
+            self.min_samples_container.hide()
         
         # 如果没有参数，显示提示
         if not required_params:
@@ -583,10 +682,19 @@ class MainWindow(QMainWindow):
             threshold1 = self.threshold1_spinbox.value()
             threshold2 = self.threshold2_spinbox.value()
             
+            # 聚类参数
+            k_value = self.k_spinbox.value()
+            eps_value = self.eps_spinbox.value()
+            min_samples = self.min_samples_spinbox.value()
+            
             if "threshold1" in required_params and "threshold2" in required_params:
                 result_image, stats = operator_func(input_image, threshold1, threshold2)
             elif "kernel_size" in required_params:
                 result_image, stats = operator_func(input_image, kernel_size)
+            elif "k_value" in required_params: # KMeans
+                result_image, stats = operator_func(input_image, k=k_value)
+            elif "eps_value" in required_params: # DBSCAN
+                result_image, stats = operator_func(input_image, eps=eps_value, min_samples=min_samples)
             else:
                 result_image, stats = operator_func(input_image, kernel_size)
             
@@ -595,6 +703,40 @@ class MainWindow(QMainWindow):
             
         except Exception as e:
             QMessageBox.critical(self, "错误", f"处理过程中出错:\n{str(e)}")
+
+    def generate_cluster_data(self):
+        """生成预设的聚类数据（随机点集）"""
+        # 使用 numpy 生成一些随机点
+        h, w = CANVAS_HEIGHT, CANVAS_WIDTH
+        
+        # 创建白色背景图
+        img = np.ones((h, w), dtype=np.uint8) * 255
+        
+        points = []
+        np.random.seed(None)  # 重置随机种子
+        
+        # Cluster 1 (右上)
+        points.append(np.random.normal(loc=[w*0.7, h*0.3], scale=20, size=(40, 2)))
+        # Cluster 2 (左下)
+        points.append(np.random.normal(loc=[w*0.3, h*0.7], scale=30, size=(50, 2)))
+        # Cluster 3 (左上散点)
+        points.append(np.random.normal(loc=[w*0.2, h*0.2], scale=15, size=(30, 2)))
+        # Cluster 4 (中心带状)
+        x = np.linspace(w*0.4, w*0.6, 40)
+        y = x * 0.5 + h*0.3 + np.random.normal(0, 5, 40)
+        points.append(np.column_stack((x, y)))
+        
+        all_points = np.vstack(points)
+        
+        # 使用 OpenCV 在 numpy 数组上绘制点
+        for p in all_points:
+            x, y = int(p[0]), int(p[1])
+            # 确保点在画布范围内
+            if 0 <= x < w and 0 <= y < h:
+                cv2.circle(img, (x, y), 5, 0, -1)  # 黑色实心圆
+        
+        # 使用 set_image_array 设置到画布
+        self.canvas.set_image_array(img)
     
     def import_template_image(self):
         """导入模板图像"""

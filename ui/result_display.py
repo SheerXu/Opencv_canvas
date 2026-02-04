@@ -4,7 +4,7 @@
 """
 
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel
-from PyQt5.QtGui import QImage, QPixmap
+from PyQt5.QtGui import QImage, QPixmap, QPainter, QPen, QColor
 from PyQt5.QtCore import Qt
 import numpy as np
 import cv2
@@ -18,6 +18,13 @@ class ResultDisplay(QWidget):
         self.width = width
         self.height = height
         
+        # 标尺显示
+        self.show_ruler = False
+        self.ruler_spacing = 50
+        
+        # 当前显示的pixmap
+        self.current_pixmap = None
+        
         self.layout = QVBoxLayout(self)
         
         # 图像标签
@@ -29,6 +36,66 @@ class ResultDisplay(QWidget):
         
         self.layout.addWidget(self.image_label)
         self.setLayout(self.layout)
+    
+    def set_ruler_visible(self, visible: bool):
+        """设置标尺是否可见"""
+        self.show_ruler = visible
+        self._update_display()
+    
+    def set_ruler_spacing(self, spacing: int):
+        """设置标尺间距"""
+        self.ruler_spacing = max(10, spacing)
+        self._update_display()
+    
+    def _draw_ruler_on_pixmap(self, pixmap):
+        """在pixmap上绘制标尺"""
+        if pixmap is None or pixmap.isNull():
+            return pixmap
+        
+        result = QPixmap(pixmap)
+        painter = QPainter(result)
+        
+        # 设置标尺样式
+        ruler_color = QColor(100, 149, 237, 180)  # 浅蓝色半透明
+        text_color = QColor(70, 130, 180)
+        painter.setPen(QPen(ruler_color, 1))
+        
+        spacing = self.ruler_spacing
+        w = result.width()
+        h = result.height()
+        
+        # 竖线
+        for x in range(0, w + 1, spacing):
+            if x == 0:
+                continue
+            painter.drawLine(x, 0, x, h)
+            painter.setPen(text_color)
+            painter.drawText(x + 2, 12, str(x))
+            painter.setPen(QPen(ruler_color, 1))
+        
+        # 横线
+        for y in range(0, h + 1, spacing):
+            if y == 0:
+                continue
+            painter.drawLine(0, y, w, y)
+            painter.setPen(text_color)
+            painter.drawText(2, y - 2, str(y))
+            painter.setPen(QPen(ruler_color, 1))
+        
+        painter.end()
+        return result
+    
+    def _update_display(self):
+        """更新显示（添加或移除标尺）"""
+        if self.current_pixmap is None:
+            return
+        
+        if self.show_ruler:
+            display_pixmap = self._draw_ruler_on_pixmap(self.current_pixmap)
+        else:
+            display_pixmap = self.current_pixmap
+        
+        self.image_label.setPixmap(display_pixmap)
     
     def set_image(self, image_array: np.ndarray):
         """设置显示的图像"""
@@ -63,8 +130,10 @@ class ResultDisplay(QWidget):
         # 缩放到标签大小
         pixmap = QPixmap.fromImage(q_image)
         scaled_pixmap = pixmap.scaled(self.width, self.height, Qt.KeepAspectRatio)
-        self.image_label.setPixmap(scaled_pixmap)
+        self.current_pixmap = scaled_pixmap
+        self._update_display()
     
     def clear(self):
         """清空显示"""
+        self.current_pixmap = None
         self.image_label.clear()

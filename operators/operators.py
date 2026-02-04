@@ -278,6 +278,222 @@ class TemplateMatchingOperator:
         return result_image, stats
 
 
+class ClusterOperator:
+    """聚类算法类"""
+
+    @staticmethod
+    def _extract_points(image: np.ndarray) -> np.ndarray:
+        """从二值图像中提取黑色点的中心坐标 (x, y)
+        使用距离变换 + 局部极大值检测来分离重叠的点
+        """
+        # 假设背景为白(255)，前景为黑(0)
+        # 如果是灰度图，先二值化
+        _, binary = cv2.threshold(image, 127, 255, cv2.THRESH_BINARY_INV)
+        
+        # 使用距离变换找到点的中心
+        dist_transform = cv2.distanceTransform(binary, cv2.DIST_L2, 5)
+        
+        # 归一化距离变换结果
+        if dist_transform.max() > 0:
+            dist_normalized = dist_transform / dist_transform.max()
+        else:
+            dist_normalized = dist_transform
+        
+        # 找到局部极大值作为点的中心
+        # 使用膨胀操作找局部极大值
+        kernel_size = 7  # 调整此值可改变检测灵敏度
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
+        dilated = cv2.dilate(dist_transform, kernel)
+        
+        # 局部极大值：距离变换值等于膨胀后的值，且距离大于阈值
+        threshold = 0.3 * dist_transform.max() if dist_transform.max() > 0 else 0
+        local_max = (dist_transform == dilated) & (dist_transform > threshold)
+        
+        # 获取局部极大值的坐标
+        ys, xs = np.where(local_max)
+        points = np.column_stack((xs, ys))
+        
+        # 如果没有找到点，退回到轮廓检测
+        if len(points) == 0:
+            contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            points = []
+            for cnt in contours:
+                M = cv2.moments(cnt)
+                if M["m00"] != 0:
+                    cX = int(M["m10"] / M["m00"])
+                    cY = int(M["m01"] / M["m00"])
+                    points.append([cX, cY])
+            points = np.array(points) if points else np.array([])
+        
+        # 如果仍然没有点，检查是否有任何前景像素
+        if len(points) == 0:
+            ys, xs = np.where(binary > 0)
+            if len(xs) > 0:
+                points = np.column_stack((xs, ys))
+            
+        return np.array(points, dtype=np.float32) if len(points) > 0 else np.array([], dtype=np.float32).reshape(0, 2)
+
+    @staticmethod
+    def _draw_cluster_result(image: np.ndarray, points: np.ndarray, labels: np.ndarray, k_or_n_clusters: int) -> np.ndarray:
+        """绘制聚类结果"""
+        h, w = image.shape[:2]
+        result = np.ones((h, w, 3), dtype=np.uint8) * 255  # 白底
+        
+        # 生成颜色表
+        if k_or_n_clusters > 0:
+            # 固定随机种子以保持颜色一致
+            np.random.seed(42)
+            colors = np.random.randint(0, 255, (k_or_n_clusters, 3)).tolist()
+        else:
+            colors = []
+
+        # 噪点颜色 (黑色或灰色)
+        noise_color = (128, 128, 128)
+
+        for point, label in zip(points, labels):
+            x, y = int(point[0]), int(point[1])
+            if label == -1:
+                color = noise_color
+            else:
+                # 确保 label 在颜色范围内
+                color_idx = label % len(colors)
+                color = colors[color_idx]
+                # BGR
+                color = (int(color[0]), int(color[1]), int(color[2]))
+
+            cv2.circle(result, (x, y), 6, color, -1)
+            cv2.circle(result, (x, y), 7, (0, 0, 0), 1) # 描边
+
+        return result
+
+    @staticmethod
+    def kmeans(image: np.ndarray, k: int = 3) -> Tuple[np.ndarray, Dict]:
+        """KMeans 聚类"""
+        points = ClusterOperator._extract_points(image)
+        
+        if len(points) < k:
+             stats = {"状态": "错误", "信息": f"点数量 ({len(points)}) 少于簇数量 ({k})"}
+             return image, stats
+
+        # OpenCV kmeans 要求 float32
+        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.2)
+        _, labels, centers = cv2.kmeans(points, k, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
+        
+        result_image = ClusterOperator._draw_cluster_result(image, points, labels.flatten(), k)
+        
+        stats = {
+            "操作": "KMeans",
+            "点数量": len(points),
+            "簇数量(K)": k,
+            "中心点": str([list(map(int, c)) for c in centers])
+        }
+        return result_image, stats
+
+    @staticmethod
+    def _dbscan_impl(X, eps, min_samples):
+        """简单的 DBSCAN numpy 实现"""
+        n = X.shape[0]
+        labels = -np.ones(n, dtype=int)
+        cluster_id = 0
+        
+        # 计算距离矩阵 (N, N)
+        # 注意：如果点太多，这里可能会内存溢出。考虑到这是canvas绘画，点数一般不多。
+        # 如果点数确实多，应用KDTree，但为了不引入sklearn，这里用暴力矩阵
+        dists = np.sqrt(np.sum((X[:, None, :] - X[None, :, :]) ** 2, axis=-1))
+        
+        visited = np.zeros(n, dtype=bool)
+        
+        for i in range(n):
+            if visited[i]:
+                continue
+            
+            visited[i] = True
+            neighbors = np.where(dists[i] <= eps)[0]
+            
+            if len(neighbors) < min_samples:
+                labels[i] = -1 # Noise
+            else:
+                # 开始新簇
+                labels[i] = cluster_id
+                seed_set = list(neighbors)
+                # 使用 while 循环来处理动态增长的 seed_set
+                # 但要注意不要重复添加
+                
+                # 优化：不需要维护 seed_set 列表，只需直接遍历 neighbors
+                # 但 DBSCAN 中需要将新发现的核心点的邻居加入队列
+                # 使用列表作为队列
+                
+                idx = 0
+                while idx < len(seed_set):
+                    curr = seed_set[idx]
+                    idx += 1
+                    
+                    if labels[curr] == -1:
+                        labels[curr] = cluster_id # 之前标记为噪点的，现在归入该簇（作为边界点）
+                    
+                    if labels[curr] != -1: # 已归类（包括刚刚归类的）
+                        if not visited[curr]: # 如果未访问，说明可能会扩展
+                            visited[curr] = True
+                            curr_neighbors = np.where(dists[curr] <= eps)[0]
+                            if len(curr_neighbors) >= min_samples:
+                                # 将新邻居加入队列，避免重复
+                                for n_idx in curr_neighbors:
+                                     if labels[n_idx] == -1 or labels[n_idx] == -1: # 逻辑修正: 实际上只需把未处理或noise的加进来
+                                         # 简单做法：只要不在 seed_set 里就加。但这效率低。
+                                         # 更标准做法：只处理 visited 为 False 的。
+                                         pass
+                                # 简化版逻辑重新梳理：
+                                # seed_set 里存放的是当前簇的所有点的索引。
+                                # 我们遍历 seed_set。
+                                pass
+                
+                # 重写扩展逻辑以确保清晰
+                labels[i] = cluster_id
+                # seed_set 初始化为邻居（除了 i 自己）
+                stack = [x for x in neighbors if x != i]
+                
+                while stack:
+                    curr = stack.pop()
+                    if labels[curr] == -1: # 之前是噪点，变成边界点
+                        labels[curr] = cluster_id
+                    
+                    if not visited[curr]:
+                        visited[curr] = True
+                        labels[curr] = cluster_id
+                        curr_neighbors = np.where(dists[curr] <= eps)[0]
+                        if len(curr_neighbors) >= min_samples:
+                            stack.extend([x for x in curr_neighbors if not visited[x]]) # 只扩展未访问的
+                
+                cluster_id += 1
+        return labels, cluster_id
+
+    @staticmethod
+    def dbscan(image: np.ndarray, eps: float = 30.0, min_samples: int = 5) -> Tuple[np.ndarray, Dict]:
+        """DBSCAN 聚类"""
+        points = ClusterOperator._extract_points(image)
+        
+        if len(points) == 0:
+             stats = {"状态": "错误", "信息": "没有检测到点"}
+             return image, stats
+
+        labels, n_clusters = ClusterOperator._dbscan_impl(points, eps, min_samples)
+        
+        result_image = ClusterOperator._draw_cluster_result(image, points, labels, n_clusters)
+        
+        # 统计噪点
+        n_noise = list(labels).count(-1)
+        
+        stats = {
+            "操作": "DBSCAN",
+            "点数量": len(points),
+            "Epsilon": eps,
+            "Min Samples": min_samples,
+            "发现簇数量": n_clusters,
+            "噪点数量": n_noise
+        }
+        return result_image, stats
+
+
 # 算子注册表
 OPERATORS = {
     "形态学操作": {
@@ -305,5 +521,9 @@ OPERATORS = {
     },
     "模板匹配": {
         "模板匹配": TemplateMatchingOperator.template_match,
+    },
+    "聚类算法": {
+        "KMeans": ClusterOperator.kmeans,
+        "DBSCAN": ClusterOperator.dbscan,
     }
 }
