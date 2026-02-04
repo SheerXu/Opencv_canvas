@@ -249,6 +249,7 @@ class TemplateMatchingOperator:
         # 找到最优匹配位置
         min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
         top_left = max_loc
+        score = result(max_loc)
         bottom_right = (top_left[0] + template_image.shape[1], top_left[1] + template_image.shape[0])
         
         # 在源图像上绘制匹配框（转为 BGR 彩色图以保留绿色）

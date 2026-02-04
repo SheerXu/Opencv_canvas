@@ -249,6 +249,20 @@ class MainWindow(QMainWindow):
         content_layout.addLayout(right_content_layout, 1)
         
         main_layout.addLayout(content_layout)
+        
+        # ===== 下方：统计信息面板 =====
+        stats_panel_layout = QVBoxLayout()
+        self.stats_label = QLabel("")
+        self.stats_label.setWordWrap(True)
+        self.stats_label.setStyleSheet("background-color: #f0f0f0; padding: 10px; border-top: 1px solid #ddd;")
+        stats_panel_layout.addWidget(self.stats_label)
+        
+        # 创建容器widget来容纳统计面板
+        stats_container = QWidget()
+        stats_container.setLayout(stats_panel_layout)
+        stats_container.setMaximumHeight(STATS_PANEL_HEIGHT)
+        
+        main_layout.addWidget(stats_container)
         central_widget.setLayout(main_layout)
         
         # 初始化参数显示
@@ -327,6 +341,22 @@ class MainWindow(QMainWindow):
         else:
             self.params_group.setTitle("参数设置")
     
+    def update_stats_display(self, stats):
+        """更新底部统计信息面板"""
+        if not stats:
+            self.stats_label.setText("")
+            return
+        
+        # 格式化统计信息为HTML
+        stats_html = "<b>处理结果统计：</b><br>"
+        for key, value in stats.items():
+            if isinstance(value, float):
+                stats_html += f"<b>{key}:</b> {value:.4f}<br>"
+            else:
+                stats_html += f"<b>{key}:</b> {value}<br>"
+        
+        self.stats_label.setText(stats_html)
+    
     def run_operator(self):
         """运行选定的算子"""
         try:
@@ -347,7 +377,7 @@ class MainWindow(QMainWindow):
                 result_image, stats = operator_func(self.source_image, self.template_image)
                 
                 self.result_display.set_image(result_image)
-                self.result_display.set_stats(stats)
+                self.update_stats_display(stats)
                 return
             
             # 其他算子逻辑
@@ -381,7 +411,7 @@ class MainWindow(QMainWindow):
                 result_image, stats = operator_func(input_image, kernel_size)
             
             self.result_display.set_image(result_image)
-            self.result_display.set_stats(stats)
+            self.update_stats_display(stats)
             
         except Exception as e:
             QMessageBox.critical(self, "错误", f"处理过程中出错:\n{str(e)}")
