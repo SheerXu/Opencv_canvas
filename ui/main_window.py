@@ -18,6 +18,119 @@ from operators import OPERATORS
 from config import *
 
 
+# 现代化UI样式
+STYLE_SHEET = """
+    QMainWindow {
+        background-color: #f5f6fa;
+    }
+    
+    QLabel {
+        color: #2c3e50;
+    }
+    
+    QPushButton {
+        background-color: #3498db;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 10px 20px;
+        font-size: 14px;
+        font-weight: bold;
+        min-height: 20px;
+    }
+    
+    QPushButton:hover {
+        background-color: #2980b9;
+    }
+    
+    QPushButton:pressed {
+        background-color: #21618c;
+    }
+    
+    QPushButton#runButton {
+        background-color: #27ae60;
+        font-size: 14px;
+        padding: 12px 24px;
+        min-height: 25px;
+    }
+    
+    QPushButton#runButton:hover {
+        background-color: #229954;
+    }
+    
+    QPushButton#clearButton {
+        background-color: #e74c3c;
+    }
+    
+    QPushButton#clearButton:hover {
+        background-color: #c0392b;
+    }
+    
+    QComboBox {
+        border: 2px solid #bdc3c7;
+        border-radius: 6px;
+        padding: 8px 12px;
+        background-color: white;
+        color: #2c3e50;
+        font-size: 14px;
+        min-height: 20px;
+    }
+    
+    QComboBox:hover {
+        border: 2px solid #3498db;
+    }
+    
+    QComboBox::drop-down {
+        border: none;
+        width: 30px;
+    }
+    
+    QComboBox::down-arrow {
+        image: none;
+        border-left: 5px solid transparent;
+        border-right: 5px solid transparent;
+        border-top: 6px solid #7f8c8d;
+        margin-right: 8px;
+    }
+    
+    QSpinBox {
+        border: 2px solid #bdc3c7;
+        border-radius: 6px;
+        padding: 6px 8px;
+        background-color: white;
+        color: #2c3e50;
+        font-size: 14px;
+        min-height: 20px;
+    }
+    
+    QSpinBox:hover {
+        border: 2px solid #3498db;
+    }
+    
+    QGroupBox {
+        background-color: white;
+        border: 1px solid #dfe6e9;
+        border-radius: 8px;
+        margin-top: 22px;
+        padding-top: 30px;
+        font-weight: bold;
+        font-size: 12px;
+        color: #2c3e50;
+    }
+    
+    QGroupBox::title {
+        subcontrol-origin: margin;
+        subcontrol-position: top center;
+        padding: 8px 20px 8px 20px;
+        background-color: #ecf0f1;
+        border-radius: 4px;
+        font-size: 11px;
+        min-width: 120px;
+        top: -2px;
+    }
+"""
+
+
 # 算子参数映射表
 OPERATOR_PARAMS = {
     "形态学操作": {
@@ -56,6 +169,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle(APP_TITLE)
         self.setGeometry(100, 100, MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT)
+        self.setStyleSheet(STYLE_SHEET)
         
         # 存储模板图像和源图像
         self.template_image = None
@@ -71,17 +185,37 @@ class MainWindow(QMainWindow):
         
         # 顶部：标签栏
         top_layout = QHBoxLayout()
+        top_layout.setSpacing(20)
+        top_layout.setContentsMargins(15, 10, 15, 10)
         
         self.left_label = QLabel("绘画区（黑色笔刷绘画在白色背景上）")
-        self.left_label.setFont(QFont("Consolas", 11, QFont.Bold))
+        self.left_label.setFont(QFont("Microsoft YaHei UI", 11, QFont.Bold))
+        self.left_label.setStyleSheet("""
+            color: #34495e;
+            background-color: #ecf0f1;
+            padding: 8px 15px;
+            border-radius: 6px;
+        """)
         
         middle_label = QLabel("参数设置与操作")
-        middle_label.setFont(QFont("Consolas", 11, QFont.Bold))
+        middle_label.setFont(QFont("Microsoft YaHei UI", 11, QFont.Bold))
         middle_label.setAlignment(Qt.AlignCenter)
+        middle_label.setStyleSheet("""
+            color: #34495e;
+            background-color: #ecf0f1;
+            padding: 8px 15px;
+            border-radius: 6px;
+        """)
         
         right_label = QLabel("处理结果")
-        right_label.setFont(QFont("Consolas", 11, QFont.Bold))
+        right_label.setFont(QFont("Microsoft YaHei UI", 11, QFont.Bold))
         right_label.setAlignment(Qt.AlignRight)
+        right_label.setStyleSheet("""
+            color: #34495e;
+            background-color: #ecf0f1;
+            padding: 8px 15px;
+            border-radius: 6px;
+        """)
         
         top_layout.addWidget(self.left_label, 1)
         top_layout.addWidget(middle_label, 0)
@@ -91,6 +225,8 @@ class MainWindow(QMainWindow):
         
         # 中间：内容区域（水平三栏）
         content_layout = QHBoxLayout()
+        content_layout.setSpacing(20)
+        content_layout.setContentsMargins(15, 10, 15, 10)
         
         # ===== 左侧：绘画或ROI选择区域（动态切换）=====
         left_content_layout = QVBoxLayout()
@@ -116,9 +252,10 @@ class MainWindow(QMainWindow):
         
         # ROI 按钮
         roi_button_layout = QHBoxLayout()
-        self.import_btn = QPushButton("导入图片")
+        roi_button_layout.setSpacing(10)
+        self.import_btn = QPushButton("📁 导入图片")
         self.import_btn.clicked.connect(self.import_template_image)
-        self.set_roi_btn = QPushButton("指定区域")
+        self.set_roi_btn = QPushButton("✂️ 指定区域")
         self.set_roi_btn.clicked.connect(self.confirm_template_roi)
         roi_button_layout.addWidget(self.import_btn)
         roi_button_layout.addWidget(self.set_roi_btn)
@@ -135,8 +272,9 @@ class MainWindow(QMainWindow):
         middle_content_layout = QVBoxLayout()
         
         # 算子分类选择
-        category_label = QLabel("选择算子分类")
-        category_label.setFont(QFont("Consolas", 10, QFont.Bold))
+        category_label = QLabel("🔧 选择算子分类")
+        category_label.setFont(QFont("Microsoft YaHei UI", 10, QFont.Bold))
+        category_label.setStyleSheet("color: #2c3e50; padding: 5px;")
         middle_content_layout.addWidget(category_label)
         
         self.category_combo = QComboBox()
@@ -144,9 +282,12 @@ class MainWindow(QMainWindow):
         self.category_combo.currentTextChanged.connect(self.on_category_changed)
         middle_content_layout.addWidget(self.category_combo)
         
+        middle_content_layout.addSpacing(10)
+        
         # 具体算子选择
-        operator_label = QLabel("选择具体算子")
-        operator_label.setFont(QFont("Consolas", 10, QFont.Bold))
+        operator_label = QLabel("⚙️ 选择具体算子")
+        operator_label.setFont(QFont("Microsoft YaHei UI", 10, QFont.Bold))
+        operator_label.setStyleSheet("color: #2c3e50; padding: 5px;")
         middle_content_layout.addWidget(operator_label)
         
         self.operator_combo = QComboBox()
@@ -154,14 +295,21 @@ class MainWindow(QMainWindow):
         self.operator_combo.currentTextChanged.connect(self.on_operator_changed)
         middle_content_layout.addWidget(self.operator_combo)
         
+        middle_content_layout.addSpacing(15)
+        
         # 参数设置区域 - 使用QVBoxLayout而不是QFormLayout
-        self.params_group = QGroupBox("参数设置")
+        self.params_group = QGroupBox("📊 参数设置")
         self.params_layout = QVBoxLayout(self.params_group)
+        self.params_layout.setSpacing(12)
+        self.params_layout.setContentsMargins(15, 20, 15, 15)
 
         # 笔刷设置区域（嵌入参数面板，便于统一显示/隐藏）
-        self.brush_group = QGroupBox("笔刷设置")
+        self.brush_group = QGroupBox("🖌️ 笔刷设置")
         brush_layout = QFormLayout(self.brush_group)
+        brush_layout.setSpacing(10)
+        brush_layout.setContentsMargins(10, 15, 10, 10)
         brush_size_label = QLabel("笔刷大小:")
+        brush_size_label.setStyleSheet("color: #34495e; font-weight: bold;")
         self.brush_size_spinbox = QSpinBox()
         self.brush_size_spinbox.setMinimum(1)
         self.brush_size_spinbox.setMaximum(50)
@@ -170,7 +318,8 @@ class MainWindow(QMainWindow):
             lambda v: self.canvas.set_brush_size(v)
         )
         brush_layout.addRow(brush_size_label, self.brush_size_spinbox)
-        clear_btn = QPushButton("清空画布")
+        clear_btn = QPushButton("🗑️ 清空画布")
+        clear_btn.setObjectName("clearButton")
         clear_btn.clicked.connect(self.canvas.clear_canvas)
         brush_layout.addRow(clear_btn)
         self.params_layout.addWidget(self.brush_group)
@@ -178,7 +327,9 @@ class MainWindow(QMainWindow):
         # 核大小参数 - 使用子容器
         kernel_container = QWidget()
         kernel_h_layout = QHBoxLayout(kernel_container)
-        self.kernel_label = QLabel("核大小")
+        kernel_h_layout.setSpacing(10)
+        self.kernel_label = QLabel("🔲 核大小:")
+        self.kernel_label.setStyleSheet("color: #34495e; font-weight: bold;")
         self.kernel_spinbox = QSpinBox()
         self.kernel_spinbox.setMinimum(1)
         self.kernel_spinbox.setMaximum(21)
@@ -193,7 +344,9 @@ class MainWindow(QMainWindow):
         # Canny低阈值 - 使用子容器
         threshold1_container = QWidget()
         threshold1_h_layout = QHBoxLayout(threshold1_container)
-        self.threshold1_label = QLabel("低阈值")
+        threshold1_h_layout.setSpacing(10)
+        self.threshold1_label = QLabel("📉 低阈值:")
+        self.threshold1_label.setStyleSheet("color: #34495e; font-weight: bold;")
         self.threshold1_spinbox = QSpinBox()
         self.threshold1_spinbox.setMinimum(0)
         self.threshold1_spinbox.setMaximum(255)
@@ -207,7 +360,9 @@ class MainWindow(QMainWindow):
         # Canny高阈值 - 使用子容器
         threshold2_container = QWidget()
         threshold2_h_layout = QHBoxLayout(threshold2_container)
-        self.threshold2_label = QLabel("高阈值")
+        threshold2_h_layout.setSpacing(10)
+        self.threshold2_label = QLabel("📈 高阈值:")
+        self.threshold2_label.setStyleSheet("color: #34495e; font-weight: bold;")
         self.threshold2_spinbox = QSpinBox()
         self.threshold2_spinbox.setMinimum(0)
         self.threshold2_spinbox.setMaximum(255)
@@ -223,9 +378,9 @@ class MainWindow(QMainWindow):
         middle_content_layout.addWidget(self.params_group)
         
         # 运行按钮
-        run_btn = QPushButton("运行算子")
-        run_btn.setFont(QFont("Consolas", 12, QFont.Bold))
-        run_btn.setStyleSheet("background-color: #4CAF50; color: white; padding: 8px;")
+        run_btn = QPushButton("▶️ 运行算子")
+        run_btn.setObjectName("runButton")
+        run_btn.setFont(QFont("Microsoft YaHei UI", 12, QFont.Bold))
         run_btn.clicked.connect(self.run_operator)
         middle_content_layout.addWidget(run_btn)
         
@@ -235,13 +390,17 @@ class MainWindow(QMainWindow):
         right_content_layout = QVBoxLayout()
         self.result_display = ResultDisplay(CANVAS_WIDTH, CANVAS_HEIGHT)
         right_content_layout.addWidget(self.result_display)
-        right_content_layout.addStretch()
-                
+        
         # 导入目标图像按钮（仅在模板匹配时显示）
-        self.import_target_btn = QPushButton("导入目标图像")
+        right_btn_layout = QHBoxLayout()
+        right_btn_layout.setSpacing(10)
+        self.import_target_btn = QPushButton("📥 导入目标图像")
         self.import_target_btn.clicked.connect(self.import_target_image)
         self.import_target_btn.hide()
-        right_content_layout.addWidget(self.import_target_btn)
+        right_btn_layout.addWidget(self.import_target_btn)
+        
+        right_content_layout.addLayout(right_btn_layout)
+        right_content_layout.addStretch()
         
         # 组合左中右三栏
         content_layout.addLayout(left_content_layout, 1)
@@ -254,7 +413,14 @@ class MainWindow(QMainWindow):
         stats_panel_layout = QVBoxLayout()
         self.stats_label = QLabel("")
         self.stats_label.setWordWrap(True)
-        self.stats_label.setStyleSheet("background-color: #f0f0f0; padding: 10px; border-top: 1px solid #ddd;")
+        self.stats_label.setStyleSheet("""
+            background-color: white;
+            padding: 15px 20px;
+            border-top: 2px solid #3498db;
+            border-radius: 8px;
+            color: #2c3e50;
+            font-size: 10px;
+        """)
         stats_panel_layout.addWidget(self.stats_label)
         
         # 创建容器widget来容纳统计面板
@@ -338,9 +504,9 @@ class MainWindow(QMainWindow):
         
         # 如果没有参数，显示提示
         if not required_params:
-            self.params_group.setTitle("参数设置（无）")
+            self.params_group.setTitle("📊 参数设置（无）")
         else:
-            self.params_group.setTitle("参数设置")
+            self.params_group.setTitle("📊 参数设置")
     
     def update_stats_display(self, stats):
         """更新底部统计信息面板"""
@@ -349,12 +515,14 @@ class MainWindow(QMainWindow):
             return
         
         # 格式化统计信息为HTML
-        stats_html = "<b>处理结果统计：</b><br>"
+        stats_html = "<div style='font-size: 11px;'>"
+        stats_html += "<span style='color: #3498db; font-size: 12px;'><b>📊 处理结果统计：</b></span><br><br>"
         for key, value in stats.items():
             if isinstance(value, float):
-                stats_html += f"<b>{key}:</b> {value:.4f}<br>"
+                stats_html += f"<span style='color: #34495e;'><b>{key}:</b></span> <span style='color: #27ae60;'>{value:.4f}</span><br>"
             else:
-                stats_html += f"<b>{key}:</b> {value}<br>"
+                stats_html += f"<span style='color: #34495e;'><b>{key}:</b></span> <span style='color: #27ae60;'>{value}</span><br>"
+        stats_html += "</div>"
         
         self.stats_label.setText(stats_html)
     
