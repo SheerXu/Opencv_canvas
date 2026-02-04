@@ -64,7 +64,7 @@ class DrawingCanvas(QWidget):
     
     def clear_canvas(self):
         """清空画布"""
-        self.image.fill(QColor(255, 255, 255))
+        self.image.fill(QColor(*CANVAS_BG_COLOR))
         self.update()
         self.image_changed.emit()
     
