@@ -134,26 +134,6 @@ class MainWindow(QMainWindow):
         # ===== 中间：参数选择和操作区域 =====
         middle_content_layout = QVBoxLayout()
         
-        # 笔刷设置区域
-        self.brush_group = QGroupBox("笔刷设置")
-        brush_layout = QFormLayout(self.brush_group)
-        
-        brush_size_label = QLabel("笔刷大小:")
-        self.brush_size_spinbox = QSpinBox()
-        self.brush_size_spinbox.setMinimum(1)
-        self.brush_size_spinbox.setMaximum(50)
-        self.brush_size_spinbox.setValue(DEFAULT_BRUSH_SIZE)
-        self.brush_size_spinbox.valueChanged.connect(
-            lambda v: self.canvas.set_brush_size(v)
-        )
-        brush_layout.addRow(brush_size_label, self.brush_size_spinbox)
-        
-        clear_btn = QPushButton("清空画布")
-        clear_btn.clicked.connect(self.canvas.clear_canvas)
-        brush_layout.addRow(clear_btn)
-        
-        middle_content_layout.addWidget(self.brush_group)
-        
         # 算子分类选择
         category_label = QLabel("选择算子分类")
         category_label.setFont(QFont("Consolas", 10, QFont.Bold))
@@ -177,6 +157,23 @@ class MainWindow(QMainWindow):
         # 参数设置区域 - 使用QVBoxLayout而不是QFormLayout
         self.params_group = QGroupBox("参数设置")
         self.params_layout = QVBoxLayout(self.params_group)
+
+        # 笔刷设置区域（嵌入参数面板，便于统一显示/隐藏）
+        self.brush_group = QGroupBox("笔刷设置")
+        brush_layout = QFormLayout(self.brush_group)
+        brush_size_label = QLabel("笔刷大小:")
+        self.brush_size_spinbox = QSpinBox()
+        self.brush_size_spinbox.setMinimum(1)
+        self.brush_size_spinbox.setMaximum(50)
+        self.brush_size_spinbox.setValue(DEFAULT_BRUSH_SIZE)
+        self.brush_size_spinbox.valueChanged.connect(
+            lambda v: self.canvas.set_brush_size(v)
+        )
+        brush_layout.addRow(brush_size_label, self.brush_size_spinbox)
+        clear_btn = QPushButton("清空画布")
+        clear_btn.clicked.connect(self.canvas.clear_canvas)
+        brush_layout.addRow(clear_btn)
+        self.params_layout.addWidget(self.brush_group)
         
         # 核大小参数 - 使用子容器
         kernel_container = QWidget()
@@ -225,12 +222,6 @@ class MainWindow(QMainWindow):
         
         middle_content_layout.addWidget(self.params_group)
         
-        # 导入源图像按钮（仅在模板匹配时显示）
-        self.import_source_btn = QPushButton("导入源图像")
-        self.import_source_btn.clicked.connect(self.import_source_image)
-        self.import_source_btn.hide()
-        middle_content_layout.addWidget(self.import_source_btn)
-        
         # 运行按钮
         run_btn = QPushButton("运行算子")
         run_btn.setFont(QFont("Consolas", 12, QFont.Bold))
@@ -245,6 +236,12 @@ class MainWindow(QMainWindow):
         self.result_display = ResultDisplay(CANVAS_WIDTH, CANVAS_HEIGHT)
         right_content_layout.addWidget(self.result_display)
         right_content_layout.addStretch()
+                
+        # 导入目标图像按钮（仅在模板匹配时显示）
+        self.import_target_btn = QPushButton("导入目标图像")
+        self.import_target_btn.clicked.connect(self.import_target_image)
+        self.import_target_btn.hide()
+        right_content_layout.addWidget(self.import_target_btn)
         
         # 组合左中右三栏
         content_layout.addLayout(left_content_layout, 1)
@@ -280,12 +277,15 @@ class MainWindow(QMainWindow):
             self.left_label.setText("模板选择（导入图片并指定模板区域）")
             self.left_stack_layout.setCurrentWidget(self.roi_container)
             self.brush_group.hide()
-            self.import_source_btn.show()
+            self.import_target_btn.show()
+            # 清空右侧显示和统计信息
+            self.result_display.clear()
+            self.update_stats_display({})
         else:
             self.left_label.setText("绘画区（黑色笔刷绘画在白色背景上）")
             self.left_stack_layout.setCurrentWidget(self.canvas_container)
             self.brush_group.show()
-            self.import_source_btn.hide()
+            self.import_target_btn.hide()
         
         self.update_operator_combo()
         self.update_params_display()
@@ -385,8 +385,8 @@ class MainWindow(QMainWindow):
             input_image = self.canvas.get_image_array()
             # input_image = 255 - input_image
             
-            # if np.sum(input_image) == 0:
-            if np.sum(input_image) == 255:
+            # if np.sum(input_image) == 255:
+            if np.sum(input_image) == 0:
                 QMessageBox.warning(self, "警告", "请先在画布上绘画")
                 return
             
@@ -429,7 +429,7 @@ class MainWindow(QMainWindow):
                 self.roi_canvas.load_image(file_path)
                 self.template_image = None
                 self.roi_canvas.clear_roi()
-                QMessageBox.information(self, "提示", "请在图像上绘制矩形框选择模板区域")
+                # QMessageBox.information(self, "提示", "请在图像上绘制矩形框选择模板区域")
             except Exception as e:
                 QMessageBox.critical(self, "错误", f"加载图像失败:\n{str(e)}")
     
@@ -441,7 +441,7 @@ class MainWindow(QMainWindow):
         
         # 启用绘制模式
         self.roi_canvas.enable_drawing()
-        QMessageBox.information(self, "提示", "请在图像上绘制矩形框来指定模板区域")
+        # QMessageBox.information(self, "提示", "请在图像上绘制矩形框来指定模板区域")
         
         # 连接 ROI 变化信号，在绘制完成后自动确认
         self.roi_canvas.roi_changed.connect(self.auto_confirm_template_roi)
@@ -457,12 +457,12 @@ class MainWindow(QMainWindow):
                 self.roi_canvas.roi_changed.disconnect(self.auto_confirm_template_roi)
             except:
                 pass
-            QMessageBox.information(
-                self, "成功", 
-                f"模板区域已确定，大小: {roi_image.shape[1]}x{roi_image.shape[0]}"
-            )
+            # QMessageBox.information(
+            #     self, "成功", 
+            #     f"模板区域已确定，大小: {roi_image.shape[1]}x{roi_image.shape[0]}"
+            # )
     
-    def import_source_image(self):
+    def import_target_image(self):
         """导入源图像用于匹配"""
         file_path, _ = QFileDialog.getOpenFileName(
             self, "选择源图像", "",
@@ -488,9 +488,13 @@ class MainWindow(QMainWindow):
                     image = cv2.resize(image, new_size)
                 
                 self.source_image = image
-                QMessageBox.information(
-                    self, "成功",
-                    f"源图像已导入，大小: {image.shape[1]}x{image.shape[0]}"
-                )
+                
+                # 在右侧立即显示导入的源图像
+                self.result_display.set_image(image)
+                
+                # QMessageBox.information(
+                #     self, "成功",
+                #     f"源图像已导入，大小: {image.shape[1]}x{image.shape[0]}"
+                # )
             except Exception as e:
                 QMessageBox.critical(self, "错误", f"加载图像失败:\n{str(e)}")
