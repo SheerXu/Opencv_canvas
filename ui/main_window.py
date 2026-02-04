@@ -3,8 +3,8 @@
 整合所有UI组件和处理逻辑
 """
 
-from PyQt5.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, 
-                             QPushButton, QLabel, QComboBox, QSpinBox, 
+from PyQt5.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
+                             QStackedLayout, QPushButton, QLabel, QComboBox, QSpinBox,
                              QGroupBox, QFormLayout, QMessageBox, QFileDialog)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
@@ -98,7 +98,10 @@ class MainWindow(QMainWindow):
         self.roi_canvas = ROICanvas(CANVAS_WIDTH, CANVAS_HEIGHT)
         
         self.left_stack_widget = QWidget()
-        self.left_stack_layout = QVBoxLayout(self.left_stack_widget)
+        # 使用 QStackedLayout 确保同一时刻只有一个画布参与布局，避免叠加高度
+        self.left_stack_layout = QStackedLayout(self.left_stack_widget)
+        self.left_stack_layout.setContentsMargins(0, 0, 0, 0)
+        self.left_stack_layout.setSpacing(0)
         
         # 画布容器
         self.canvas_container = QWidget()
@@ -123,7 +126,7 @@ class MainWindow(QMainWindow):
         
         self.left_stack_layout.addWidget(self.canvas_container)
         self.left_stack_layout.addWidget(self.roi_container)
-        self.roi_container.hide()
+        self.left_stack_layout.setCurrentWidget(self.canvas_container)
         
         left_content_layout.addWidget(self.left_stack_widget)
         left_content_layout.addStretch()
@@ -275,14 +278,12 @@ class MainWindow(QMainWindow):
         # 切换左侧面板
         if self.is_template_matching:
             self.left_label.setText("模板选择（导入图片并指定模板区域）")
-            self.canvas_container.hide()
-            self.roi_container.show()
+            self.left_stack_layout.setCurrentWidget(self.roi_container)
             self.brush_group.hide()
             self.import_source_btn.show()
         else:
             self.left_label.setText("绘画区（黑色笔刷绘画在白色背景上）")
-            self.canvas_container.show()
-            self.roi_container.hide()
+            self.left_stack_layout.setCurrentWidget(self.canvas_container)
             self.brush_group.show()
             self.import_source_btn.hide()
         
