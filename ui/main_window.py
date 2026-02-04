@@ -253,12 +253,15 @@ class MainWindow(QMainWindow):
         # ROI 按钮
         roi_button_layout = QHBoxLayout()
         roi_button_layout.setSpacing(10)
-        self.import_btn = QPushButton("📁 导入图片")
+        self.import_btn = QPushButton("📁 导入模板图片")
         self.import_btn.clicked.connect(self.import_template_image)
         self.set_roi_btn = QPushButton("✂️ 指定区域")
         self.set_roi_btn.clicked.connect(self.confirm_template_roi)
+        self.import_target_btn = QPushButton("📥 导入目标图像")
+        self.import_target_btn.clicked.connect(self.import_target_image)
         roi_button_layout.addWidget(self.import_btn)
         roi_button_layout.addWidget(self.set_roi_btn)
+        roi_button_layout.addWidget(self.import_target_btn)
         roi_layout.addLayout(roi_button_layout)
         
         self.left_stack_layout.addWidget(self.canvas_container)
@@ -298,7 +301,7 @@ class MainWindow(QMainWindow):
         middle_content_layout.addSpacing(15)
         
         # 参数设置区域 - 使用QVBoxLayout而不是QFormLayout
-        self.params_group = QGroupBox("📊 参数设置")
+        self.params_group = QGroupBox("🔧 参数设置")
         self.params_layout = QVBoxLayout(self.params_group)
         self.params_layout.setSpacing(12)
         self.params_layout.setContentsMargins(15, 20, 15, 15)
@@ -390,16 +393,6 @@ class MainWindow(QMainWindow):
         right_content_layout = QVBoxLayout()
         self.result_display = ResultDisplay(CANVAS_WIDTH, CANVAS_HEIGHT)
         right_content_layout.addWidget(self.result_display)
-        
-        # 导入目标图像按钮（仅在模板匹配时显示）
-        right_btn_layout = QHBoxLayout()
-        right_btn_layout.setSpacing(10)
-        self.import_target_btn = QPushButton("📥 导入目标图像")
-        self.import_target_btn.clicked.connect(self.import_target_image)
-        self.import_target_btn.hide()
-        right_btn_layout.addWidget(self.import_target_btn)
-        
-        right_content_layout.addLayout(right_btn_layout)
         right_content_layout.addStretch()
         
         # 组合左中右三栏
@@ -443,7 +436,7 @@ class MainWindow(QMainWindow):
             self.left_label.setText("模板选择（导入图片并指定模板区域）")
             self.left_stack_layout.setCurrentWidget(self.roi_container)
             self.brush_group.hide()
-            self.import_target_btn.show()
+            # self.import_target_btn.show() # 已移入 roi_container 随堆栈显示
             # 清空右侧显示和统计信息
             self.result_display.clear()
             self.update_stats_display({})
@@ -451,7 +444,7 @@ class MainWindow(QMainWindow):
             self.left_label.setText("绘画区（黑色笔刷绘画在白色背景上）")
             self.left_stack_layout.setCurrentWidget(self.canvas_container)
             self.brush_group.show()
-            self.import_target_btn.hide()
+            # self.import_target_btn.hide() # 已移入 roi_container 随堆栈隐藏
         
         self.update_operator_combo()
         self.update_params_display()
