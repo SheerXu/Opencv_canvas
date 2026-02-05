@@ -391,14 +391,12 @@ class ClusterOperator:
 
     @staticmethod
     def _dbscan_impl(X, eps, min_samples):
-        """简单的 DBSCAN numpy 实现"""
+        """DBSCAN numpy 实现"""
         n = X.shape[0]
-        labels = -np.ones(n, dtype=int)
+        labels = np.full(n, -1, dtype=int)  # -1 表示未分类/噪点
         cluster_id = 0
         
         # 计算距离矩阵 (N, N)
-        # 注意：如果点太多，这里可能会内存溢出。考虑到这是canvas绘画，点数一般不多。
-        # 如果点数确实多，应用KDTree，但为了不引入sklearn，这里用暴力矩阵
         dists = np.sqrt(np.sum((X[:, None, :] - X[None, :, :]) ** 2, axis=-1))
         
         visited = np.zeros(n, dtype=bool)
@@ -408,63 +406,46 @@ class ClusterOperator:
                 continue
             
             visited[i] = True
+            # 找到邻域内的所有点（包括自己）
             neighbors = np.where(dists[i] <= eps)[0]
             
+            # 如果邻居数量不足，标记为噪点
             if len(neighbors) < min_samples:
-                labels[i] = -1 # Noise
+                labels[i] = -1
             else:
-                # 开始新簇
+                # 是核心点，开始新簇
                 labels[i] = cluster_id
+                
+                # 使用队列扩展簇
                 seed_set = list(neighbors)
-                # 使用 while 循环来处理动态增长的 seed_set
-                # 但要注意不要重复添加
                 
-                # 优化：不需要维护 seed_set 列表，只需直接遍历 neighbors
-                # 但 DBSCAN 中需要将新发现的核心点的邻居加入队列
-                # 使用列表作为队列
-                
-                idx = 0
-                while idx < len(seed_set):
-                    curr = seed_set[idx]
-                    idx += 1
+                j = 0
+                while j < len(seed_set):
+                    q = seed_set[j]
+                    j += 1
                     
-                    if labels[curr] == -1:
-                        labels[curr] = cluster_id # 之前标记为噪点的，现在归入该簇（作为边界点）
+                    # 如果 q 之前被标记为噪点，现在改为当前簇的边界点
+                    if labels[q] == -1:
+                        labels[q] = cluster_id
                     
-                    if labels[curr] != -1: # 已归类（包括刚刚归类的）
-                        if not visited[curr]: # 如果未访问，说明可能会扩展
-                            visited[curr] = True
-                            curr_neighbors = np.where(dists[curr] <= eps)[0]
-                            if len(curr_neighbors) >= min_samples:
-                                # 将新邻居加入队列，避免重复
-                                for n_idx in curr_neighbors:
-                                     if labels[n_idx] == -1 or labels[n_idx] == -1: # 逻辑修正: 实际上只需把未处理或noise的加进来
-                                         # 简单做法：只要不在 seed_set 里就加。但这效率低。
-                                         # 更标准做法：只处理 visited 为 False 的。
-                                         pass
-                                # 简化版逻辑重新梳理：
-                                # seed_set 里存放的是当前簇的所有点的索引。
-                                # 我们遍历 seed_set。
-                                pass
-                
-                # 重写扩展逻辑以确保清晰
-                labels[i] = cluster_id
-                # seed_set 初始化为邻居（除了 i 自己）
-                stack = [x for x in neighbors if x != i]
-                
-                while stack:
-                    curr = stack.pop()
-                    if labels[curr] == -1: # 之前是噪点，变成边界点
-                        labels[curr] = cluster_id
+                    # 如果 q 已经被访问过，跳过
+                    if visited[q]:
+                        continue
                     
-                    if not visited[curr]:
-                        visited[curr] = True
-                        labels[curr] = cluster_id
-                        curr_neighbors = np.where(dists[curr] <= eps)[0]
-                        if len(curr_neighbors) >= min_samples:
-                            stack.extend([x for x in curr_neighbors if not visited[x]]) # 只扩展未访问的
+                    visited[q] = True
+                    labels[q] = cluster_id
+                    
+                    # 检查 q 的邻域
+                    q_neighbors = np.where(dists[q] <= eps)[0]
+                    
+                    # 如果 q 也是核心点，将其邻居加入seed_set
+                    if len(q_neighbors) >= min_samples:
+                        for neighbor in q_neighbors:
+                            if neighbor not in seed_set:
+                                seed_set.append(neighbor)
                 
                 cluster_id += 1
+        
         return labels, cluster_id
 
     @staticmethod
