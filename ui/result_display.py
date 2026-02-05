@@ -8,7 +8,7 @@ from PyQt5.QtGui import QImage, QPixmap, QPainter, QPen, QColor
 from PyQt5.QtCore import Qt
 import numpy as np
 import cv2
-
+from config import RULER_SPACING
 
 class ResultDisplay(QWidget):
     """结果显示控件"""
@@ -20,7 +20,7 @@ class ResultDisplay(QWidget):
         
         # 标尺显示
         self.show_ruler = False
-        self.ruler_spacing = 50
+        self.ruler_spacing = RULER_SPACING  # 标尺间距（像素）
         
         # 当前显示的pixmap
         self.current_pixmap = None

@@ -33,7 +33,7 @@ class DrawingCanvas(QWidget):
         
         # 标尺显示
         self.show_ruler = False
-        self.ruler_spacing = 50  # 标尺间距（像素）
+        self.ruler_spacing = RULER_SPACING  # 标尺间距（像素）
         
         # 初始化画布
         self.image = QImage(width, height, QImage.Format_Grayscale8)
